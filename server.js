@@ -7,9 +7,13 @@ const methodOverride = require('method-override')
 const bodyParser = require('body-parser'); //package for getting url encodings GET POST request
 const app = express()
 const carbone = require('carbone')
+const fs = require('fs');
+const uuid = require('uuid');
 
 app.use(express.urlencoded({extended:false})) //tells express we want to get data from form like req.body.email
 app.use(methodOverride('_method'))
+app.use(bodyParser.json());
+
 
 //testing endpoint
 app.get('/', async (req, res) =>{
@@ -27,29 +31,33 @@ app.get('/generate', async (req, res) =>{
     console.log(req.body)
     if(req.body.options){
         options = {
-            convertTo : req.body.options //can be docx, txt, ...
+            convertTo : req.body.options.convertTo //can be docx, txt, ...
         };
-        ext = req.body.options
+        ext = req.body.options.convertTo
     }
 
     // Data to inject
-    var data = {
-        firstname : 'John',
-        lastname : 'Doe'
-    };
+    var data = req.body.data
+    var template = req.body.template
+    var templatename = uuid.v4()+'-result.odt'
+    fs.writeFileSync('temp/'+templatename, template, {encoding: 'base64'});
 
-    carbone.render('./node_modules/carbone/examples/simple.odt', data, options, function(err, result){
+    carbone.render('temp/'+templatename, data, options, function(err, result){
         if (err) {
-          return console.log(err);
+            res.status(400).json({
+                message: 'failed',
+                error:err
+            });
+            return console.log(err);
         }
         // write the result
         //fs.writeFileSync('result.odt', result);
+        fs.unlinkSync('temp/'+templatename)
 
         res.status(200).json({
             message: 'Success',
-            ext,
-            body:req.body,
-            result: result
+            options,
+            result: result.toString('base64') //.toString('utf-8')
         });
 
       });
